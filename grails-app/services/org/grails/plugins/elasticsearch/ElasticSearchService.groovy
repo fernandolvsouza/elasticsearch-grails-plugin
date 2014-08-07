@@ -431,7 +431,7 @@ class ElasticSearchService implements GrailsApplicationAware {
     def search(SearchRequest request, Map params) {
         resolveIndicesAndTypes(request, params)
         elasticSearchHelper.withElasticSearch { Client client ->
-            LOG.debug 'Executing search request....'
+            LOG.debug 'Executing search request.'
             def response = client.search(request).actionGet()
             LOG.debug 'Completed search request.'
             def searchHits = response.getHits()
@@ -453,7 +453,6 @@ class ElasticSearchService implements GrailsApplicationAware {
                 result.highlight = highlightResults
             }
 
-            LOG.debug 'Suggest: ${response.suggest}'
             if (params.suggests) {
                 result.suggest = response.suggest
             }
