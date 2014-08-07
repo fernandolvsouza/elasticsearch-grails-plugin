@@ -26,6 +26,10 @@ import org.elasticsearch.index.query.QueryStringQueryBuilder
 import org.elasticsearch.search.SearchHit
 import org.elasticsearch.search.builder.SearchSourceBuilder
 import org.elasticsearch.search.highlight.HighlightBuilder
+import org.elasticsearch.search.suggest.SuggestBuilder
+import org.elasticsearch.search.suggest.term.TermSuggestionBuilder
+import org.elasticsearch.search.suggest.phrase.PhraseSuggestionBuilder
+import org.elasticsearch.search.suggest.completion.CompletionSuggestionBuilder
 import org.elasticsearch.search.sort.SortBuilder
 import org.elasticsearch.search.sort.SortOrder
 import org.grails.plugins.elasticsearch.util.GXContentBuilder
@@ -364,6 +368,33 @@ class ElasticSearchService implements GrailsApplicationAware {
             source.highlight highlighter
         }
 
+        // Handle suggest
+        if (params.suggests) {
+
+            params.suggests.each{
+                
+                def builder
+
+                if(it.type == 'term'){
+                    builder = new TermSuggestionBuilder(it.name)
+                }else if(it.type == 'phrase'){
+                    builder = new PhraseSuggestionBuilder(it.name)
+                }else if(it.type == 'completion'){
+                    builder = new CompletionSuggestionBuilder(it.name)
+                } else{
+                    throw new IllegalArgumentException("Unknown suggestion type: ${it.type}")
+                }
+
+                def closure = it.settings
+                closure.delegate = builder
+                closure.resolveStrategy = Closure.DELEGATE_FIRST
+                closure.call()
+
+                source.suggest().addSuggestion(builder)
+            }
+            
+        }
+
         source.explain(false)
 
         SearchRequest request = new SearchRequest()
@@ -400,7 +431,7 @@ class ElasticSearchService implements GrailsApplicationAware {
     def search(SearchRequest request, Map params) {
         resolveIndicesAndTypes(request, params)
         elasticSearchHelper.withElasticSearch { Client client ->
-            LOG.debug 'Executing search request.'
+            LOG.debug 'Executing search request....'
             def response = client.search(request).actionGet()
             LOG.debug 'Completed search request.'
             def searchHits = response.getHits()
@@ -420,6 +451,11 @@ class ElasticSearchService implements GrailsApplicationAware {
                     highlightResults << hit.highlightFields
                 }
                 result.highlight = highlightResults
+            }
+
+            LOG.debug 'Suggest: ${response.suggest}'
+            if (params.suggests) {
+                result.suggest = response.suggest
             }
 
             LOG.debug 'Adding score information to results.'
