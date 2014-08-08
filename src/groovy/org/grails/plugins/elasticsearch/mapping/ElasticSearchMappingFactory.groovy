@@ -22,6 +22,8 @@ import org.codehaus.groovy.grails.commons.GrailsDomainClass
 import org.codehaus.groovy.grails.commons.GrailsDomainClassProperty
 import org.codehaus.groovy.grails.plugins.GrailsPluginManager
 import org.springframework.util.ClassUtils
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 
 /**
  * Build ElasticSearch class mapping based on attributes provided by closure.
@@ -168,6 +170,13 @@ class ElasticSearchMappingFactory {
                 propOptions.type = 'nested'
             }
             elasticTypeMappingProperties.put(scpm.getPropertyName(), propOptions)
+
+            if(scpm.isCompletion()){ //create other property in case of suggest
+                def completionPropOptions = [:]
+                completionPropOptions = scpm.getCompletion()
+                completionPropOptions.type = 'completion'
+                elasticTypeMappingProperties.put(scpm.getPropertyName()+"_suggestion", completionPropOptions)
+            }
         }
         elasticTypeMappingProperties
     }
