@@ -153,6 +153,11 @@ class JSONDomainFactory {
 			if(scpm.getAlias()){
 				json.field(scpm.getAlias(), res)
 			}
+            // add completion
+            if(scpm.getCompletion()){
+                json.field(scpm.propertyName + "_suggestion", res)
+            }
+
         }
         marshallingContext.pop()
         json.endObject()

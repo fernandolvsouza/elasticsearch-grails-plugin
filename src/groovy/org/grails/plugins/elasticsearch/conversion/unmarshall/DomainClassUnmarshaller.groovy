@@ -161,81 +161,82 @@ class DomainClassUnmarshaller {
         Object parseResult
         if (null == scpm) {
             // TODO: unhandled property exists in index
-        }
-        if (null != scpm && propertyValue instanceof Map) {
+        }else {
+            if (propertyValue instanceof Map) {
 
-            Map<String, Object> data = (Map<String, Object>) propertyValue
+                Map<String, Object> data = (Map<String, Object>) propertyValue
 
-            // Handle cycle reference
-            if (data.containsKey("ref")) {
-                unmarshallingContext.addCycleRef(propertyValue)
-                return null
-            }
+                // Handle cycle reference
+                if (data.containsKey("ref")) {
+                    unmarshallingContext.addCycleRef(propertyValue)
+                    return null
+                }
 
-            // Searchable reference.
-            if (scpm.reference != null) {
-                Class<?> refClass = scpm.bestGuessReferenceType
-                GrailsDomainClass refDomainClass
-                for (GrailsClass dClazz : grailsApplication.getArtefacts(DomainClassArtefactHandler.TYPE)) {
-                    if (dClazz.clazz.equals(refClass)) {
-                        refDomainClass = dClazz
-                        break
+                // Searchable reference.
+                if (scpm.reference != null) {
+                    Class<?> refClass = scpm.bestGuessReferenceType
+                    GrailsDomainClass refDomainClass
+                    for (GrailsClass dClazz : grailsApplication.getArtefacts(DomainClassArtefactHandler.TYPE)) {
+                        if (dClazz.clazz.equals(refClass)) {
+                            refDomainClass = dClazz
+                            break
+                        }
                     }
+                    Assert.state(refDomainClass != null, "Found reference to non-domain class: $refClass")
+                    return unmarshallReference(refDomainClass, data, unmarshallingContext)
                 }
-                Assert.state(refDomainClass != null, "Found reference to non-domain class: $refClass")
-                return unmarshallReference(refDomainClass, data, unmarshallingContext)
-            }
 
-            if (data.containsKey("class") && (Boolean) grailsApplication.flatConfig.get('elasticSearch.unmarshallComponents')) {
-                // Embedded instance.
-                if (!scpm.isComponent()) {
-                    // maybe ignore?
-                    throw new IllegalStateException("Property ${domainClass.name}.${propertyName} is not mapped as [component], but broken search hit found.")
-                }
-                GrailsDomainClass nestedDomainClass = ((GrailsDomainClass) grailsApplication.getArtefact(DomainClassArtefactHandler.TYPE, (String) data.get('class')))
-                if (domainClass != null) {
-                    // Unmarshall 'component' instance.
+                if (data.containsKey("class") && (Boolean) grailsApplication.flatConfig.get('elasticSearch.unmarshallComponents')) {
+                    // Embedded instance.
                     if (!scpm.isComponent()) {
-                        throw new IllegalStateException("Object ${data.get('class')} found in index, but [$propertyName] is not mapped as component.")
+                        // maybe ignore?
+                        throw new IllegalStateException("Property ${domainClass.name}.${propertyName} is not mapped as [component], but broken search hit found.")
                     }
-                    parseResult = unmarshallDomain(nestedDomainClass, data.get('id'), data, unmarshallingContext)
-                }
-            }
-        } else if (propertyValue instanceof Collection) {
-            List<Object> results = []
-            int index = 0
-            for (innerValue in (Collection) propertyValue) {
-                unmarshallingContext.unmarshallingStack.push(String.valueOf(index))
-                Object parseItem = unmarshallProperty(domainClass, propertyName, innerValue, unmarshallingContext)
-                if (parseItem != null) {
-                    results.add(parseItem)
-                }
-                index++
-                unmarshallingContext.unmarshallingStack.pop()
-            }
-            parseResult = results
-        } else {
-            // consider any custom property editors here.
-            if (scpm.converter != null) {
-                if (scpm.converter instanceof Class) {
-                    try {
-                        PropertyEditor propertyEditor = (PropertyEditor) ((Class) scpm.converter).newInstance()
-                        propertyEditor.setAsText((String) propertyValue)
-                        parseResult = propertyEditor.value
-                    } catch (Exception e) {
-                        throw new IllegalArgumentException("Unable to unmarshall $propertyName using $scpm.converter", e)
+                    GrailsDomainClass nestedDomainClass = ((GrailsDomainClass) grailsApplication.getArtefact(DomainClassArtefactHandler.TYPE, (String) data.get('class')))
+                    if (domainClass != null) {
+                        // Unmarshall 'component' instance.
+                        if (!scpm.isComponent()) {
+                            throw new IllegalStateException("Object ${data.get('class')} found in index, but [$propertyName] is not mapped as component.")
+                        }
+                        parseResult = unmarshallDomain(nestedDomainClass, data.get('id'), data, unmarshallingContext)
                     }
                 }
-            } else if (scpm.reference != null) {
-
-                // This is a reference and it MUST be null because it's not a Map.
-                if (propertyValue != null) {
-                    throw new IllegalStateException("Found searchable reference which is not a Map: ${domainClass}.${propertyName} = $propertyValue")
+            } else if (propertyValue instanceof Collection) {
+                List<Object> results = []
+                int index = 0
+                for (innerValue in (Collection) propertyValue) {
+                    unmarshallingContext.unmarshallingStack.push(String.valueOf(index))
+                    Object parseItem = unmarshallProperty(domainClass, propertyName, innerValue, unmarshallingContext)
+                    if (parseItem != null) {
+                        results.add(parseItem)
+                    }
+                    index++
+                    unmarshallingContext.unmarshallingStack.pop()
                 }
+                parseResult = results
+            } else {
+                // consider any custom property editors here.
+                if (scpm.converter != null) {
+                    if (scpm.converter instanceof Class) {
+                        try {
+                            PropertyEditor propertyEditor = (PropertyEditor) ((Class) scpm.converter).newInstance()
+                            propertyEditor.setAsText((String) propertyValue)
+                            parseResult = propertyEditor.value
+                        } catch (Exception e) {
+                            throw new IllegalArgumentException("Unable to unmarshall $propertyName using $scpm.converter", e)
+                        }
+                    }
+                } else if (scpm.reference != null) {
 
-                parseResult = null
-            } else if (scpm.grailsProperty.type == Date && null != propertyValue) {
-                parseResult = XContentBuilder.defaultDatePrinter.parseDateTime(propertyValue).toDate()
+                    // This is a reference and it MUST be null because it's not a Map.
+                    if (propertyValue != null) {
+                        throw new IllegalStateException("Found searchable reference which is not a Map: ${domainClass}.${propertyName} = $propertyValue")
+                    }
+
+                    parseResult = null
+                } else if (scpm.grailsProperty.type == Date && null != propertyValue) {
+                    parseResult = XContentBuilder.defaultDatePrinter.parseDateTime(propertyValue).toDate()
+                }
             }
         }
 
