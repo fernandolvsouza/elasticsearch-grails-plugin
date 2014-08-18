@@ -34,6 +34,7 @@ class SearchableDomainClassMapper extends GroovyObjectSupport {
     private GrailsApplication grailsApplication
     private only
     private except
+    private completion
 
     private ConfigObject esConfig
 
@@ -155,6 +156,9 @@ class SearchableDomainClassMapper extends GroovyObjectSupport {
             }
         }
 
+        // handle completion for the nth try
+        handleCompletion()
+
         SearchableClassMapping scm = new SearchableClassMapping(grailsDomainClass, customMappedProperties.values())
         scm.setRoot(root)
         return scm
@@ -274,5 +278,14 @@ class SearchableDomainClassMapper extends GroovyObjectSupport {
             return 'searchable'
         }
         searchablePropertyName
+    }
+
+    private handleCompletion(){
+        if(completion){
+            if(!completion?.name || !completion?.mapping || !completion.indexing){
+                throw new IllegalArgumentException("Completion mal-formed: completion. Should have [name:?,mapping:?,indexing:?]")
+            }
+            customMappedProperties.put(completion.name, new SearchableClassPropertyMapping(completion.name,'completion',[completion:completion]))
+        } 
     }
 }

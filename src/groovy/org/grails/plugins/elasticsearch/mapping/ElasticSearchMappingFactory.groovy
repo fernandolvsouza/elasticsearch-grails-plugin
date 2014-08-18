@@ -20,7 +20,7 @@ import grails.util.Holders
 import org.codehaus.groovy.grails.commons.GrailsClassUtils
 import org.codehaus.groovy.grails.commons.GrailsDomainClass
 import org.codehaus.groovy.grails.commons.GrailsDomainClassProperty
-import org.codehaus.groovy.grails.plugins.GrailsPluginManager
+import org.codehaus.groovy.grails.plugins.GrailsPluginManager   
 import org.springframework.util.ClassUtils
 import org.slf4j.Logger
 import org.slf4j.LoggerFactory
@@ -29,6 +29,8 @@ import org.slf4j.LoggerFactory
  * Build ElasticSearch class mapping based on attributes provided by closure.
  */
 class ElasticSearchMappingFactory {
+
+    private static final Logger LOG = LoggerFactory.getLogger(this)
 
     private static final Set<String> SUPPORTED_FORMAT =
             ['string', 'integer', 'long', 'float', 'double', 'boolean', 'null', 'date']
@@ -69,12 +71,15 @@ class ElasticSearchMappingFactory {
         scm.getPropertiesMapping().each { SearchableClassPropertyMapping scpm ->
             // Does it have custom mapping?
             def grailsProperty = scpm.getGrailsProperty()
-            String propType = grailsProperty.getTypePropertyName()
+            String propType = scpm.propertyType
             Map<String, Object> propOptions = [:]
             // Add the custom mapping (searchable static property in domain model)
             propOptions.putAll(scpm.getAttributes())
             if (scpm.isGeoPoint()) {
                 propType = 'geo_point'
+            } else if (scpm.isCompletion()) {
+                propOptions = scpm.getCompletion().mapping
+                propOptions.type = 'completion'
             } else if (!(SUPPORTED_FORMAT.contains(propType))) {
                 // Handle embedded persistent collections, ie List<String> listOfThings
                 def referencedPropertyType = grailsProperty.getReferencedPropertyType()
@@ -145,7 +150,7 @@ class ElasticSearchMappingFactory {
             }
             propOptions.type = propType
             // See http://www.elasticsearch.com/docs/elasticsearch/mapping/all_field/
-            if ((propType != 'object') && scm.isAll()) {
+            if (propType != 'object' && propType != 'completion' && scm.isAll()) {
                 // does it make sense to include objects into _all?
                 propOptions.include_in_all = !scpm.shouldExcludeFromAll()
             }
@@ -169,14 +174,9 @@ class ElasticSearchMappingFactory {
             if (propType == 'object' && scpm.isComponent()) {
                 propOptions.type = 'nested'
             }
+
             elasticTypeMappingProperties.put(scpm.getPropertyName(), propOptions)
 
-            if(scpm.isCompletion()){ //create other property in case of suggest
-                def completionPropOptions = [:]
-                completionPropOptions = scpm.getCompletion()
-                completionPropOptions.type = 'completion'
-                elasticTypeMappingProperties.put(scpm.getPropertyName()+"_suggestion", completionPropOptions)
-            }
         }
         elasticTypeMappingProperties
     }

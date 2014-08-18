@@ -31,6 +31,8 @@ class SearchableClassPropertyMapping {
     /** Grails attributes of this property */
     private GrailsDomainClassProperty grailsProperty
 
+    private String nonGrailsProperty,nonGrailsPropertyType
+
     /** Mapping attributes values, will be added in the ElasticSearch JSON mapping request  */
     private Map<String, Object> mappingAttributes = [:]
 
@@ -45,6 +47,12 @@ class SearchableClassPropertyMapping {
 
     SearchableClassPropertyMapping(GrailsDomainClassProperty property, Map options) {
         grailsProperty = property
+        addAttributes(options)
+    }
+
+    SearchableClassPropertyMapping(String property, String type, Map options) {
+        nonGrailsProperty = property
+        nonGrailsPropertyType = type
         addAttributes(options)
     }
 
@@ -112,7 +120,7 @@ class SearchableClassPropertyMapping {
         }
 
         // is it association?
-        if (grailsProperty.association) {
+        if (grailsProperty?.association) {
             return grailsProperty.referencedPropertyType
         }
 
@@ -126,11 +134,11 @@ class SearchableClassPropertyMapping {
      */
     void validate(ElasticSearchContextHolder contextHolder) {
         if (component && (reference != null)) {
-            throw new IllegalArgumentException("Property ${grailsProperty.name} cannot be 'component' and 'reference' at once.")
+            throw new IllegalArgumentException("Property ${propertyName} cannot be 'component' and 'reference' at once.")
         }
 
         if (component && (componentPropertyMapping == null)) {
-            throw new IllegalArgumentException("Property ${grailsProperty.name} is mapped as component, but dependent mapping is not injected.")
+            throw new IllegalArgumentException("Property ${propertyName} is mapped as component, but dependent mapping is not injected.")
         }
 
         // Are we referencing searchable class?
@@ -140,11 +148,11 @@ class SearchableClassPropertyMapping {
             // May not be correct to inheritance model.
             SearchableClassMapping scm = contextHolder.getMappingContextByType(myReferenceType)
             if (scm == null) {
-                throw new IllegalArgumentException("Property ${grailsProperty.name} declared as reference to non-searchable class $myReferenceType")
+                throw new IllegalArgumentException("Property ${propertyName} declared as reference to non-searchable class $myReferenceType")
             }
             // Should it be a root class????
             if (!scm.isRoot()) {
-                throw new IllegalArgumentException("Property ${grailsProperty.name} declared as reference to non-root class $myReferenceType")
+                throw new IllegalArgumentException("Property ${propertyName} declared as reference to non-root class $myReferenceType")
             }
         }
     }
@@ -156,12 +164,12 @@ class SearchableClassPropertyMapping {
         "SearchableClassPropertyMapping{propertyName=$propertyName, propertyType='$propertyType, mappingAttributes=$mappingAttributes, specialMappingAttributes=$specialMappingAttributes"
     }
 
-    private Class<?> getPropertyType() {
-        grailsProperty.type
+    private String getPropertyType() {
+        grailsProperty ? grailsProperty.getTypePropertyName() : nonGrailsPropertyType
     }
 
     String getPropertyName() {
-        grailsProperty.name
+        grailsProperty ? grailsProperty.name : nonGrailsProperty 
     }
 
     GrailsDomainClassProperty getGrailsProperty() {
@@ -211,4 +219,6 @@ class SearchableClassPropertyMapping {
     Map getCompletion(){
         specialMappingAttributes.get('completion')
     }
+
+
 }

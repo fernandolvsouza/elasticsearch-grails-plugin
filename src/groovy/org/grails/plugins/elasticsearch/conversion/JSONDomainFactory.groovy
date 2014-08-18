@@ -25,11 +25,14 @@ import org.grails.plugins.elasticsearch.unwrap.DomainClassUnWrapperChain
 import java.beans.PropertyEditor
 
 import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder
-
+import org.slf4j.Logger
+import org.slf4j.LoggerFactory
 /**
  * Marshall objects as JSON.
  */
 class JSONDomainFactory {
+
+    private static final Logger LOG = LoggerFactory.getLogger(this)
 
     def elasticSearchContextHolder
     def grailsApplication
@@ -146,16 +149,39 @@ class JSONDomainFactory {
         marshallingContext.push(instance)
         // Build the json-formated map that will contain the data to index
         scm.propertiesMapping.each { scpm ->
-            marshallingContext.lastParentPropertyName = scpm.propertyName
-            def res = delegateMarshalling(instance."${scpm.propertyName}", marshallingContext)
-            json.field(scpm.propertyName, res)
-			//add the alias
-			if(scpm.getAlias()){
-				json.field(scpm.getAlias(), res)
-			}
+           
             // add completion
-            if(scpm.getCompletion()){
-                json.field(scpm.propertyName + "_suggestion", res)
+            if(scpm.isCompletion()){
+
+                Closure input_c = (Closure) scpm.getCompletion().indexing.input
+                Closure output_c = (Closure) scpm.getCompletion().indexing.output
+                Closure payload_c = (Closure) scpm.getCompletion().indexing.payload
+
+                def input = input_c.call(instance)
+                def output = output_c.call(instance)
+                def payload = payload_c.call(instance)
+
+                json.startObject(scpm.propertyName).
+                field("input",input).
+                field("output",output)
+                if(payload instanceof Map){
+                    json.startObject("payload")
+                    payload.each{ k,v->
+                        json.field(k,v)
+                    }
+                    json.endObject()
+                } 
+                json.endObject()
+                
+
+            }else{
+                marshallingContext.lastParentPropertyName = scpm.propertyName
+                def res = delegateMarshalling(instance."${scpm.propertyName}", marshallingContext)
+                json.field(scpm.propertyName, res)
+                //add the alias
+                if(scpm.getAlias()){
+                    json.field(scpm.getAlias(), res)
+                }
             }
 
         }
