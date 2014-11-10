@@ -171,7 +171,7 @@ class ElasticSearchMappingFactory {
                 propOptions.type = 'multi_field'
                 propOptions.fields = fields
             }
-            if (propType == 'object' && scpm.isComponent()) {
+            if (propType == 'object' && scpm.component && !scpm.innerComponent) {
                 propOptions.type = 'nested'
             }
 
