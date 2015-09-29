@@ -30,10 +30,16 @@ class SearchableClassMapping {
     /** Searchable root? */
     private boolean root = true
     private boolean all = true
+    private String indexName = null
 
     SearchableClassMapping(GrailsDomainClass domainClass, Collection<SearchableClassPropertyMapping> propertiesMapping) {
         this.domainClass = domainClass
         this.propertiesMapping = propertiesMapping
+    }
+
+    SearchableClassMapping(GrailsDomainClass domainClass, Collection<SearchableClassPropertyMapping> propertiesMapping, String indexName) {
+        this(domainClass, propertiesMapping)
+        this.indexName = indexName
     }
 
     SearchableClassPropertyMapping getPropertyMapping(String propertyName) {
@@ -75,6 +81,9 @@ class SearchableClassMapping {
      * @return ElasticSearch index name
      */
     String getIndexName() {
+        if (indexName)
+            return indexName
+            
         String name = domainClass.grailsApplication.config.elasticSearch.index.name ?: domainClass.packageName
         if (name == null || name.length() == 0) {
             // index name must be lowercase (org.elasticsearch.indices.InvalidIndexNameException)

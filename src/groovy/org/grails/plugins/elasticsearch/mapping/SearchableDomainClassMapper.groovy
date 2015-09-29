@@ -35,6 +35,7 @@ class SearchableDomainClassMapper extends GroovyObjectSupport {
     private only
     private except
     private completion
+    private indexName = null
 
     private ConfigObject esConfig
 
@@ -69,6 +70,14 @@ class SearchableDomainClassMapper extends GroovyObjectSupport {
 
     void root(Boolean rootFlag) {
         this.root = rootFlag
+    }
+
+    void setIndexName(String indexName) {
+        this.indexName = indexName
+    }
+
+    void indexName(String indexName) {
+        this.indexName = indexName
     }
 
     /**
@@ -159,7 +168,7 @@ class SearchableDomainClassMapper extends GroovyObjectSupport {
         // handle completion for the nth try
         handleCompletion()
 
-        SearchableClassMapping scm = new SearchableClassMapping(grailsDomainClass, customMappedProperties.values())
+        SearchableClassMapping scm = new SearchableClassMapping(grailsDomainClass, customMappedProperties.values(), indexName)
         scm.setRoot(root)
         return scm
     }
